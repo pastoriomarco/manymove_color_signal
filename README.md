@@ -4,7 +4,7 @@ Simple ROS 2 package that:
 
 - Publishes `signal_column_msgs/SignalColor` messages to `/signal_column` (demo node)
 - Provides a BehaviorTree-based UR client executable that mirrors Manymove's `bt_client_ur`,
-  plus a new BT node `PublishSignalColorAction` used to emit a green signal at startup.
+  plus a new BT node `PublishSignalColorAction`.
 
 Build:
 
