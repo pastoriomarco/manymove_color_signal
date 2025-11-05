@@ -3,6 +3,7 @@
 """UR MoveGroup bringup launching Manymove stack + color-signal BT client."""
 
 import os
+from copy import deepcopy
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -26,6 +27,17 @@ from launch_ros.substitutions import FindPackageShare
 from manymove_bringup.pipeline_utils import normalize_pipeline_config
 
 import yaml
+
+
+DEFAULT_UR_KINEMATICS = {
+    # Conservative defaults that work across ROS 2 releases when upstream configs omit them.
+    'ur_manipulator': {
+        'kinematics_solver': 'kdl_kinematics_plugin/KDLKinematicsPlugin',
+        'kinematics_solver_search_resolution': 0.005,
+        'kinematics_solver_timeout': 0.005,
+        'kinematics_solver_attempts': 3,
+    }
+}
 
 
 def load_yaml(package_name, file_path):
@@ -221,8 +233,47 @@ def launch_setup(context, *args, **kwargs):
         'publish_robot_description_semantic': publish_robot_description_semantic
     }
 
-    robot_description_kinematics_file = ParameterFile(
-        PathJoinSubstitution([FindPackageShare(moveit_config_package), 'config', 'kinematics.yaml'])
+    raw_kinematics_yaml = load_yaml(
+        moveit_config_pkg_name, os.path.join('config', 'kinematics.yaml')
+    )
+    kinematics_data: dict[str, dict] = {}
+    if isinstance(raw_kinematics_yaml, dict):
+        if 'robot_description_kinematics' in raw_kinematics_yaml:
+            kinematics_data = raw_kinematics_yaml['robot_description_kinematics']
+        else:
+            kinematics_data = (
+                raw_kinematics_yaml.get('/**', {})
+                .get('ros__parameters', {})
+                .get('robot_description_kinematics', {})
+            )
+
+    fallback_candidates = {planning_group, 'ur_manipulator'}
+    fallback_candidates.discard('')
+    for group_name in fallback_candidates:
+        existing_entry = kinematics_data.get(group_name, {})
+        needs_solver = not isinstance(existing_entry, dict) or not existing_entry.get(
+            'kinematics_solver'
+        )
+        if not needs_solver:
+            continue
+
+        default_config = DEFAULT_UR_KINEMATICS.get(group_name) or DEFAULT_UR_KINEMATICS.get(
+            'ur_manipulator'
+        )
+        if not default_config:
+            continue
+
+        merged_entry = deepcopy(default_config)
+        if isinstance(existing_entry, dict):
+            merged_entry.update(existing_entry)
+        kinematics_data[group_name] = merged_entry
+        logger.warning(
+            "MoveIt kinematics configuration for group '%s' is missing. "
+            "Falling back to KDL defaults to keep pose goals working on ROS 2 Jazzy.",
+            group_name,
+        )
+    robot_description_kinematics = (
+        {'robot_description_kinematics': kinematics_data} if kinematics_data else None
     )
     robot_description_planning = {
         'robot_description_planning': load_yaml(
@@ -307,7 +358,6 @@ def launch_setup(context, *args, **kwargs):
         robot_description,
         robot_description_semantic,
         publish_robot_description_semantic_param,
-        robot_description_kinematics_file,
         robot_description_planning,
         planning_pipeline_config,
         trajectory_execution,
@@ -316,6 +366,8 @@ def launch_setup(context, *args, **kwargs):
         {'use_sim_time': use_sim_time},
         warehouse_ros_config,
     ]
+    if robot_description_kinematics:
+        moveit_parameter_overrides.insert(3, robot_description_kinematics)
 
     controllers_file_path = os.path.join(
         get_package_share_directory('manymove_bringup'),
@@ -469,12 +521,13 @@ def launch_setup(context, *args, **kwargs):
         rviz_parameters = [
             robot_description,
             robot_description_semantic,
-            robot_description_kinematics_file,
             robot_description_planning,
             planning_pipeline_config,
             warehouse_ros_config,
             {'use_sim_time': use_sim_time},
         ]
+        if robot_description_kinematics:
+            rviz_parameters.insert(2, robot_description_kinematics)
         rviz_node = Node(
             package='rviz2',
             executable='rviz2',
