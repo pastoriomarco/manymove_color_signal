@@ -25,6 +25,7 @@ from launch_ros.parameter_descriptions import ParameterFile
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from manymove_bringup.pipeline_utils import normalize_pipeline_config
+from manymove_bringup.ros_compat import resolve_moveit_controller_config
 
 import yaml
 
@@ -116,6 +117,8 @@ def launch_setup(context, *args, **kwargs):
     ur_type_value = ur_type.perform(context)
     use_fake_value = use_fake_hardware.perform(context).lower()
     is_robot_real = use_fake_value not in ('true', '1', 't', 'yes', 'on')
+    ros_distro = os.environ.get('ROS_DISTRO', '').strip().lower()
+    use_jazzy_fake_minimal = use_fake_value == 'true' and ros_distro == 'jazzy'
 
     moveit_config_pkg_name = moveit_config_package.perform(context)
 
@@ -325,8 +328,32 @@ def launch_setup(context, *args, **kwargs):
 
     MOVEIT_CONTROLLER = 'moveit_simple_controller_manager/MoveItSimpleControllerManager'
 
-    controllers_yaml = load_yaml(moveit_config_pkg_name, os.path.join('config', 'controllers.yaml'))
-    if use_sim_time.perform(context).lower() == 'true':
+    controllers_yaml = None
+    controllers_config_relpath = ''
+    if use_jazzy_fake_minimal:
+        controllers_config_relpath = os.path.join('config', 'ur', 'controllers_fake_minimal.yaml')
+        controllers_yaml = load_yaml('manymove_bringup', controllers_config_relpath)
+    else:
+        try:
+            controllers_config_relpath = resolve_moveit_controller_config(moveit_config_pkg_name)
+            controllers_yaml = load_yaml(moveit_config_pkg_name, controllers_config_relpath)
+        except (FileNotFoundError, OSError) as exc:
+            controllers_config_relpath = os.path.join('config', 'ur', 'controllers_fake_minimal.yaml')
+            logger.warning(
+                "MoveIt controller config is unavailable (%s). Falling back to '%s' from package "
+                "'manymove_bringup'.",
+                exc,
+                controllers_config_relpath,
+            )
+            controllers_yaml = load_yaml('manymove_bringup', controllers_config_relpath)
+
+    if (
+        use_sim_time.perform(context).lower() == 'true'
+        and not use_jazzy_fake_minimal
+        and isinstance(controllers_yaml, dict)
+        and 'scaled_joint_trajectory_controller' in controllers_yaml
+        and 'joint_trajectory_controller' in controllers_yaml
+    ):
         controllers_yaml['scaled_joint_trajectory_controller']['default'] = True
         controllers_yaml['joint_trajectory_controller']['default'] = False
     moveit_controllers = {
