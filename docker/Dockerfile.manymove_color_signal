@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1
+ARG ROS_DISTRO=humble
+ARG BASE_IMAGE_TAG=manymove:${ROS_DISTRO}
+FROM ${BASE_IMAGE_TAG}
+
+ARG USERNAME=manymove
+ARG USER_GID=1000
+ARG MANYMOVE_WS=/opt/manymove_ws
+
+ENV ROS_DISTRO=${ROS_DISTRO} \
+    MANYMOVE_WS=${MANYMOVE_WS}
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+USER root
+WORKDIR ${MANYMOVE_WS}
+
+# Refresh overlay packages from the local workspace snapshot.
+RUN rm -rf ${MANYMOVE_WS}/src/signal_column_msgs \
+    ${MANYMOVE_WS}/src/manymove_color_signal
+
+COPY src/signal_column_msgs ${MANYMOVE_WS}/src/signal_column_msgs
+COPY src/manymove_color_signal ${MANYMOVE_WS}/src/manymove_color_signal
+
+RUN chown -R ${USERNAME}:${USER_GID} \
+    ${MANYMOVE_WS}/src/signal_column_msgs \
+    ${MANYMOVE_WS}/src/manymove_color_signal
+
+# Install any missing dependencies for the new packages.
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    cd ${MANYMOVE_WS} && \
+    rosdep install \
+      --from-paths src/signal_column_msgs src/manymove_color_signal \
+      --ignore-src \
+      --rosdistro ${ROS_DISTRO} \
+      -y -r && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Build the overlay as the non-root workspace user.
+RUN gosu ${USERNAME} bash -lc "\
+    set -eo pipefail && \
+    source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    cd ${MANYMOVE_WS} && \
+    colcon build --symlink-install \
+      --packages-select signal_column_msgs manymove_color_signal \
+"
+
+USER ${USERNAME}
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]

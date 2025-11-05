@@ -31,3 +31,29 @@ Notes
   `manymove_cpp_trees` does not depend on `signal_column_msgs`.
 - The executable `bt_client_ur_color_signal` reuses the full Manymove C++ tree library and logic
   via `manymove_cpp_trees`, registering the extra node and injecting it into the startup sequence.
+
+## Docker Overlay
+
+Run the helper script to build (or refresh) the base ManyMove image plus a color-signal overlay,
+then drop into an interactive container:
+
+- `./src/manymove_color_signal/docker/run_manymove_color_signal_container.sh jazzy`
+
+Useful flags:
+
+- `--pull-latest` updates the upstream ManyMove repo before rebuilding the base image.
+- `--force-rebuild` rebuilds both base and overlay images even if nothing appears to have changed.
+- `--build-only` skips launching the container after the images are up to date.
+
+Pass any additional `docker run` options after `--`, for example:
+
+- `./src/manymove_color_signal/docker/run_manymove_color_signal_container.sh jazzy -- --volume "$(pwd)":/host_ws`
+
+Need a one-shot bootstrap that fetches the repos and kicks everything off?
+
+- `./src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh --ros-distro jazzy`
+
+The bootstrapper creates the workspace (`~/workspaces/dev_ws` by default), clones `manymove`,
+`manymove_color_signal`, and `signal_column_msgs`, then hands off to the container helper. You can
+override the workspace path (`--workspace /tmp/manymove_ws`), switch branches or repo URLs, reuse the
+runner flags like `--pull-latest`, and pass extra docker options after `--` just as with the direct runner.
