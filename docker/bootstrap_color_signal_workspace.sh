@@ -162,9 +162,9 @@ if [[ ! -x "${RUNNER_SCRIPT}" ]]; then
 fi
 
 echo "Workspace ready at ${WORKSPACE}."
-echo "Launching docker workflow for ROS ${ROS_DISTRO}..."
+echo "Launching docker workflow for ROS ${ROS_DISTRO} (ManyMove branch ${MANYMOVE_BRANCH})..."
 
-CMD=("${RUNNER_SCRIPT}" "${ROS_DISTRO}" "${RUNNER_FLAGS[@]}")
+CMD=("env" "MANYMOVE_BRANCH=${MANYMOVE_BRANCH}" "${RUNNER_SCRIPT}" "${ROS_DISTRO}" "${RUNNER_FLAGS[@]}")
 if [[ ${#DOCKER_ARGS[@]} -gt 0 ]]; then
   CMD+=("--")
   CMD+=("${DOCKER_ARGS[@]}")
