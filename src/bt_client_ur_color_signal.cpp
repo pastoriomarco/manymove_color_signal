@@ -241,7 +241,7 @@ int main(int argc, char ** argv)
 
   std::string startup_sequence_xml = sequenceWrapperXML(
     "StartUpSequence", {check_reset_robot_xml, spawn_fixed_objects_xml, 
-      open_gripper_xml, prep_sequence_xml});
+      open_gripper_xml, reset_graspable_objects_xml, prep_sequence_xml});
 
   std::string repeat_forever_color_signal_update_sequence_xml = repeatSequenceWrapperXML(
     "RepeatForeverColorSignalUpdate",
