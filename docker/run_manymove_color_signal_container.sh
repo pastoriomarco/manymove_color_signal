@@ -168,16 +168,26 @@ if [[ "${NEEDS_BUILD}" == true ]]; then
   else
     echo "Building overlay image '${OVERLAY_IMAGE_TAG}'."
   fi
-
-  docker build \
-    --build-arg "ROS_DISTRO=${DISTRO}" \
-    --build-arg "BASE_IMAGE_TAG=${BASE_IMAGE_TAG}" \
-    --build-arg "USERNAME=${CONTAINER_USER}" \
-    --build-arg "USER_GID=${CONTAINER_GID}" \
-    --label "${LABEL_KEY}=${CONTEXT_HASH}" \
-    -f "${DOCKERFILE}" \
-    -t "${OVERLAY_IMAGE_TAG}" \
+  BUILD_CMD=(
+    docker build
+    "--build-arg" "ROS_DISTRO=${DISTRO}"
+    "--build-arg" "BASE_IMAGE_TAG=${BASE_IMAGE_TAG}"
+    "--build-arg" "USERNAME=${CONTAINER_USER}"
+    "--build-arg" "USER_GID=${CONTAINER_GID}"
+    "--label" "${LABEL_KEY}=${CONTEXT_HASH}"
+  )
+  if [[ "${PULL_LATEST}" == true ]]; then
+    BUILD_CMD+=("--pull")
+  fi
+  if [[ "${FORCE_REBUILD}" == true ]]; then
+    BUILD_CMD+=("--no-cache")
+  fi
+  BUILD_CMD+=(
+    "-f" "${DOCKERFILE}"
+    "-t" "${OVERLAY_IMAGE_TAG}"
     "${BUILD_CONTEXT}"
+  )
+  "${BUILD_CMD[@]}"
 else
   echo "Overlay image '${OVERLAY_IMAGE_TAG}' is up to date."
 fi
