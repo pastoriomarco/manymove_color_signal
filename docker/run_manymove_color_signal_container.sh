@@ -197,6 +197,7 @@ RUN_ARGS=(
   "--rm"
   "-it"
   "--network" "host"
+  "--ipc" "host"  # ensure Fast DDS shared memory transport works between multiple shells
 )
 
 if [[ -n "${DISPLAY:-}" ]]; then
