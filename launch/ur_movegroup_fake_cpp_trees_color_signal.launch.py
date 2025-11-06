@@ -120,6 +120,9 @@ def launch_setup(context, *args, **kwargs):
     ros_distro = os.environ.get('ROS_DISTRO', '').strip().lower()
     use_jazzy_fake_minimal = use_fake_value == 'true' and ros_distro == 'jazzy'
 
+    if use_jazzy_fake_minimal and traj_controller == 'scaled_joint_trajectory_controller':
+        traj_controller = 'joint_trajectory_controller'
+
     moveit_config_pkg_name = moveit_config_package.perform(context)
 
     joint_limit_params = PathJoinSubstitution(
