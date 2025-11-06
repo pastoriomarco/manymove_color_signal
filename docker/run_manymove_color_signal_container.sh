@@ -176,9 +176,6 @@ if [[ "${NEEDS_BUILD}" == true ]]; then
     "--build-arg" "USER_GID=${CONTAINER_GID}"
     "--label" "${LABEL_KEY}=${CONTEXT_HASH}"
   )
-  if [[ "${PULL_LATEST}" == true ]]; then
-    BUILD_CMD+=("--pull")
-  fi
   if [[ "${FORCE_REBUILD}" == true ]]; then
     BUILD_CMD+=("--no-cache")
   fi
