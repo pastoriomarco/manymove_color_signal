@@ -204,8 +204,11 @@ if [[ -n "${XAUTHORITY:-}" && -f "${XAUTHORITY}" ]]; then
   RUN_ARGS+=("-v" "${XAUTHORITY}:${XAUTHORITY}:rw")
 fi
 
-if command -v nvidia-smi >/dev/null 2>&1; then
+# Optional GPU disable flag
+if [[ -z "${MANYMOVE_NO_GPU:-}" ]] && command -v nvidia-smi >/dev/null 2>&1; then
   RUN_ARGS+=("--gpus" "all")
+else
+  echo "GPU support disabled (MANYMOVE_NO_GPU set or nvidia-smi missing)"
 fi
 
 echo "Launching container '${OVERLAY_IMAGE_TAG}'."
