@@ -354,12 +354,14 @@ def launch_setup(context, *args, **kwargs):
         and 'scaled_joint_trajectory_controller' in controllers_yaml
         and 'joint_trajectory_controller' in controllers_yaml
     ):
-        controllers_yaml['scaled_joint_trajectory_controller']['default'] = True
-        controllers_yaml['joint_trajectory_controller']['default'] = False
+                controllers_yaml['scaled_joint_trajectory_controller']['default'] = True
+                controllers_yaml['joint_trajectory_controller']['default'] = False
     moveit_controllers = {
         'moveit_simple_controller_manager': controllers_yaml,
         'moveit_controller_manager': MOVEIT_CONTROLLER,
     }
+
+    planning_pipeline_config = normalize_pipeline_config(planning_pipeline_config)
 
     trajectory_execution = {
         'moveit_manage_controllers': False,
