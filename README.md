@@ -51,6 +51,12 @@ Pass any additional `docker run` options after `--`, for example:
 
 Need a one-shot bootstrap that fetches the repos and kicks everything off?
 
+```bash
+export MANYMOVE_ROS_WS=~/workspaces/dev_ws && \
+export MANYMOVE_NO_GPU=1 && \
+bash ${MANYMOVE_ROS_WS}/src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh --ros-distro jazzy --workspace ${MANYMOVE_ROS_WS}
+```
+
 - `./src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh --ros-distro jazzy`
 
 The bootstrapper creates the workspace (`~/workspaces/dev_ws` by default), clones `manymove`,

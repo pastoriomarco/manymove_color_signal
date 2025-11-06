@@ -89,10 +89,8 @@ def launch_setup(context, *args, **kwargs):
         if stripped.endswith('gripper_command'):
             converted = stripped[: -len('gripper_command')] + 'gripper_cmd'
             logger.warning(
-                "Parameter 'gripper_action_server' value '%s' uses deprecated suffix "
-                "'gripper_command'; using '%s' instead.",
-                raw_value,
-                converted,
+                f"Parameter 'gripper_action_server' value '{raw_value}' uses deprecated suffix "
+                f"'gripper_command'; using '{converted}' instead."
             )
             return converted
         return stripped
@@ -252,6 +250,16 @@ def launch_setup(context, *args, **kwargs):
                 .get('ros__parameters', {})
                 .get('robot_description_kinematics', {})
             )
+            if not kinematics_data:
+                kinematics_data = {
+                    key: value
+                    for key, value in raw_kinematics_yaml.items()
+                    if isinstance(value, dict)
+                    and (
+                        'kinematics_solver' in value
+                        or any(k.startswith('kinematics_') for k in value.keys())
+                    )
+                }
 
     fallback_candidates = {planning_group, 'ur_manipulator'}
     fallback_candidates.discard('')
@@ -274,9 +282,8 @@ def launch_setup(context, *args, **kwargs):
             merged_entry.update(existing_entry)
         kinematics_data[group_name] = merged_entry
         logger.warning(
-            "MoveIt kinematics configuration for group '%s' is missing. "
-            "Falling back to KDL defaults to keep pose goals working on ROS 2 Jazzy.",
-            group_name,
+            f"MoveIt kinematics configuration for group '{group_name}' is missing. "
+            "Falling back to KDL defaults to keep pose goals working on ROS 2 Jazzy."
         )
     robot_description_kinematics = (
         {'robot_description_kinematics': kinematics_data} if kinematics_data else None
@@ -343,10 +350,8 @@ def launch_setup(context, *args, **kwargs):
         except (FileNotFoundError, OSError) as exc:
             controllers_config_relpath = os.path.join('config', 'ur', 'controllers_fake_minimal.yaml')
             logger.warning(
-                "MoveIt controller config is unavailable (%s). Falling back to '%s' from package "
-                "'manymove_bringup'.",
-                exc,
-                controllers_config_relpath,
+                f"MoveIt controller config is unavailable ({exc}). Falling back to "
+                f"'{controllers_config_relpath}' from package 'manymove_bringup'."
             )
             controllers_yaml = load_yaml('manymove_bringup', controllers_config_relpath)
 
