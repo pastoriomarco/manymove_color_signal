@@ -186,7 +186,7 @@ def launch_setup(context, *args, **kwargs):
             LaunchConfiguration('prefix'),
             ' ',
             'tf_prefix:=',
-            prefix_clean,
+            LaunchConfiguration('tf_prefix'),
             ' ',
             'use_fake_hardware:=',
             use_fake_hardware,
@@ -332,6 +332,13 @@ def launch_setup(context, *args, **kwargs):
         planning_pipeline_config[pipeline_name] = normalize_pipeline_config(
             load_yaml(pkg, rel_path)
         )
+    for plugin_name, plugin in {
+        'chomp': 'chomp_interface/CHOMPPlanner',
+        'pilz_industrial_motion_planner': 'pilz_industrial_motion_planner/CommandPlanner',
+    }.items():
+        pipeline_entry = planning_pipeline_config.get(plugin_name)
+        if isinstance(pipeline_entry, dict):
+            pipeline_entry['planning_plugin'] = plugin
     try:
         if 'planner_configs' not in planning_pipeline_config.get('ompl', {}):
             ompl_defaults = load_yaml(
@@ -341,6 +348,7 @@ def launch_setup(context, *args, **kwargs):
                 planning_pipeline_config['ompl'].update(ompl_defaults)
     except Exception:
         pass
+    planning_pipeline_config = normalize_pipeline_config(planning_pipeline_config)
 
     MOVEIT_CONTROLLER = 'moveit_simple_controller_manager/MoveItSimpleControllerManager'
 
@@ -368,14 +376,12 @@ def launch_setup(context, *args, **kwargs):
         and 'scaled_joint_trajectory_controller' in controllers_yaml
         and 'joint_trajectory_controller' in controllers_yaml
     ):
-                controllers_yaml['scaled_joint_trajectory_controller']['default'] = True
-                controllers_yaml['joint_trajectory_controller']['default'] = False
+        controllers_yaml['scaled_joint_trajectory_controller']['default'] = True
+        controllers_yaml['joint_trajectory_controller']['default'] = False
     moveit_controllers = {
         'moveit_simple_controller_manager': controllers_yaml,
         'moveit_controller_manager': MOVEIT_CONTROLLER,
     }
-
-    planning_pipeline_config = normalize_pipeline_config(planning_pipeline_config)
 
     trajectory_execution = {
         'moveit_manage_controllers': False,
