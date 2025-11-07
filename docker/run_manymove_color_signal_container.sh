@@ -176,6 +176,9 @@ if [[ "${NEEDS_BUILD}" == true ]]; then
     "--build-arg" "USER_GID=${CONTAINER_GID}"
     "--label" "${LABEL_KEY}=${CONTEXT_HASH}"
   )
+  if [[ -n "${MANYMOVE_COLCON_WORKERS:-}" ]]; then
+    BUILD_CMD+=("--build-arg" "MANYMOVE_COLCON_WORKERS=${MANYMOVE_COLCON_WORKERS}")
+  fi
   if [[ "${FORCE_REBUILD}" == true ]]; then
     BUILD_CMD+=("--no-cache")
   fi

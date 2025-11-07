@@ -6,9 +6,11 @@ FROM ${BASE_IMAGE_TAG}
 ARG USERNAME=manymove
 ARG USER_GID=1000
 ARG MANYMOVE_WS=/opt/manymove_ws
+ARG MANYMOVE_COLCON_WORKERS
 
 ENV ROS_DISTRO=${ROS_DISTRO} \
-    MANYMOVE_WS=${MANYMOVE_WS}
+    MANYMOVE_WS=${MANYMOVE_WS} \
+    MANYMOVE_COLCON_WORKERS=${MANYMOVE_COLCON_WORKERS}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -38,12 +40,17 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
 
 # Build the overlay as the non-root workspace user.
 RUN gosu ${USERNAME} bash -lc "\
-    set -eo pipefail && \
-    source /opt/ros/${ROS_DISTRO}/setup.bash && \
-    cd ${MANYMOVE_WS} && \
+    set -eo pipefail; \
+    source /opt/ros/${ROS_DISTRO}/setup.bash; \
+    cd ${MANYMOVE_WS}; \
+    parallel_args=\"\"; \
+    if [[ -n \"${MANYMOVE_COLCON_WORKERS}\" && ${MANYMOVE_COLCON_WORKERS} =~ ^[0-9]+$ && ${MANYMOVE_COLCON_WORKERS} -gt 0 ]]; then \
+      parallel_args=\"--parallel-workers ${MANYMOVE_COLCON_WORKERS}\"; \
+      export CMAKE_BUILD_PARALLEL_LEVEL=${MANYMOVE_COLCON_WORKERS}; \
+    fi; \
     colcon build --symlink-install \
       --packages-select signal_column_msgs manymove_color_signal \
-"
+      \${parallel_args}"
 
 USER ${USERNAME}
 ENTRYPOINT ["/ros_entrypoint.sh"]

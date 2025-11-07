@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bootstrap_color_signal_workspace.sh [options] [-- docker run args...]
+Usage: bootstrap_color_signal_workspace.sh [<humble|jazzy>] [options] [-- docker run args...]
 
 Prepares a ManyMove workspace with the color-signal overlay, then calls
 run_manymove_color_signal_container.sh to build and start the docker environment.
@@ -54,6 +54,7 @@ clone_or_update() {
 MANYMOVE_WS_DEFAULT="${MANYMOVE_ROS_WS:-${HOME}/workspaces/dev_ws}"
 WORKSPACE="${MANYMOVE_WS_DEFAULT}"
 ROS_DISTRO="jazzy"
+ROS_DISTRO_SET=false
 MANYMOVE_REPO_DEFAULT="https://github.com/pastoriomarco/manymove.git"
 MANYMOVE_BRANCH_DEFAULT="${MANYMOVE_BRANCH:-main}"
 COLOR_SIGNAL_REPO_DEFAULT="https://github.com/pastoriomarco/manymove_color_signal.git"
@@ -70,6 +71,16 @@ SIGNAL_COLUMN_BRANCH="${SIGNAL_COLUMN_BRANCH_DEFAULT}"
 
 RUNNER_FLAGS=()
 DOCKER_ARGS=()
+POSITIONAL_DISTRO=""
+
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    humble|jazzy)
+      POSITIONAL_DISTRO="$1"
+      shift
+      ;;
+  esac
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -87,6 +98,7 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       ROS_DISTRO="$2"
+      ROS_DISTRO_SET=true
       shift 2
       ;;
     --manymove-branch)
@@ -142,6 +154,14 @@ case "${ROS_DISTRO}" in
     exit 1
     ;;
 esac
+
+if [[ -n "${POSITIONAL_DISTRO}" ]]; then
+  if [[ "${ROS_DISTRO_SET}" == true && "${POSITIONAL_DISTRO}" != "${ROS_DISTRO}" ]]; then
+    echo "Conflicting ROS distro selections: positional '${POSITIONAL_DISTRO}' vs --ros-distro '${ROS_DISTRO}'." >&2
+    exit 1
+  fi
+  ROS_DISTRO="${POSITIONAL_DISTRO}"
+fi
 
 require_cmd git
 require_cmd docker

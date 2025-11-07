@@ -54,12 +54,27 @@ Need a one-shot bootstrap that fetches the repos and kicks everything off?
 ```bash
 export MANYMOVE_ROS_WS=~/workspaces/dev_ws && \
 export MANYMOVE_NO_GPU=1 && \
-bash ${MANYMOVE_ROS_WS}/src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh --ros-distro jazzy --workspace ${MANYMOVE_ROS_WS}
+bash ${MANYMOVE_ROS_WS}/src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh jazzy --workspace ${MANYMOVE_ROS_WS}
 ```
 
-- `./src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh --ros-distro jazzy`
+- `./src/manymove_color_signal/docker/bootstrap_color_signal_workspace.sh jazzy`
 
 The bootstrapper creates the workspace (`~/workspaces/dev_ws` by default), clones `manymove`,
 `manymove_color_signal`, and `signal_column_msgs`, then hands off to the container helper. You can
 override the workspace path (`--workspace /tmp/manymove_ws`), switch branches or repo URLs, reuse the
 runner flags like `--pull-latest`, and pass extra docker options after `--` just as with the direct runner.
+Prefer the positional `humble|jazzy` argument to match the other run scripts, but `--ros-distro` is still
+accepted for backwards compatibility (both cannot conflict).
+
+### Throttle build workers
+
+Set `MANYMOVE_COLCON_WORKERS` (positive integer) before calling either the bootstrapper or container runner to cap
+how many packages `colcon` builds in parallel inside the Docker images and during any subsequent
+`/opt/manymove/setup_workspace.sh` runs:
+
+```bash
+export MANYMOVE_COLCON_WORKERS=1
+./src/manymove_color_signal/docker/run_manymove_color_signal_container.sh jazzy
+```
+
+Leave the variable unset (or empty) to revert to the default concurrency.
