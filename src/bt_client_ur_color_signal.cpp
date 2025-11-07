@@ -54,9 +54,11 @@ int main(int argc, char ** argv)
   blackboard->set("approach_pick_target_key", Pose());
 
   Pose drop_target = createPoseRPY(0.3, 0.3, 0.25, 3.14, 0.0, -1.57);
+  // Pose drop_target = createPoseRPY(0.2, 0.3, 0.4, 3.14, 0.785, -1.57);
   blackboard->set("drop_target_key", drop_target);
 
   Pose approach_drop_target = drop_target;
+  // approach_drop_target.position.y -= 0.05;
   approach_drop_target.position.z += 0.05;
   blackboard->set("approach_drop_target_key", approach_drop_target);
 
