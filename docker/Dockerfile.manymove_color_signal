@@ -44,7 +44,7 @@ RUN gosu ${USERNAME} bash -lc "\
     source /opt/ros/${ROS_DISTRO}/setup.bash; \
     cd ${MANYMOVE_WS}; \
     parallel_args=\"\"; \
-    if [[ -n \"${MANYMOVE_COLCON_WORKERS}\" && ${MANYMOVE_COLCON_WORKERS} =~ ^[0-9]+$ && ${MANYMOVE_COLCON_WORKERS} -gt 0 ]]; then \
+    if [[ -n \"${MANYMOVE_COLCON_WORKERS}\" && \"${MANYMOVE_COLCON_WORKERS}\" =~ ^[0-9]+$ && \"${MANYMOVE_COLCON_WORKERS}\" -gt 0 ]]; then \
       parallel_args=\"--parallel-workers ${MANYMOVE_COLCON_WORKERS}\"; \
       export CMAKE_BUILD_PARALLEL_LEVEL=${MANYMOVE_COLCON_WORKERS}; \
     fi; \
