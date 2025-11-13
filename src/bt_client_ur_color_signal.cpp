@@ -155,6 +155,22 @@ int main(int argc, char ** argv)
   // ----------------------------------------------------------------------------
   // 5) Build higher level snippets
   // ----------------------------------------------------------------------------  
+
+  // Define lamp keys on the blackboard for HMI + runtime updates via SetKeyBoolValue
+  manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "green_lamp", "bool", false);
+  manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "yellow_lamp", "bool", false);
+  // manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "red_lamp", "bool", false);
+
+  std::string green_lamp_on_xml = buildSetKeyBool(rp.prefix, "SetGreenLampOn", "green_lamp", true);
+  std::string green_lamp_off_xml = buildSetKeyBool(rp.prefix, "SetGreenLampOff", "green_lamp", false);
+  std::string yellow_lamp_on_xml = buildSetKeyBool(rp.prefix, "SetYellowLampOn", "yellow_lamp", true);
+  std::string yellow_lamp_off_xml = buildSetKeyBool(rp.prefix, "SetYellowLampOff", "yellow_lamp", false);
+  // std::string red_lamp_on_xml = buildSetKeyBool(rp.prefix, "SetRedLampOn", "red_lamp", true);
+  // std::string red_lamp_off_xml = buildSetKeyBool(rp.prefix, "SetRedLampOff", "red_lamp", false);
+
+  // Generic snippet to publish the current lamp states; you can insert this wherever you want
+  std::string update_color_signals_xml = manymove_color_signal::buildPublishSignalColorXML(
+    "UpdateColorSignals", "green_lamp", "yellow_lamp", "stop_execution", "/signal_column");
   
   // Objects handling
   std::string spawn_fixed_objects_xml =
@@ -173,10 +189,20 @@ int main(int argc, char ** argv)
     ("<GripperCommandAction position=\"0.25\" max_effort=\"40.0\" action_server=\"" +
     rp.gripper_action_server + "\"/>");
 
-  std::string close_gripper_xml = 
-  sequenceWrapperXML("CloseGripper", {gripper_close_action_xml, graspable.attach_xml});
-  std::string open_gripper_xml =
-    sequenceWrapperXML("OpenGripper", {gripper_open_action_xml, graspable.detach_xml});
+  std::string close_gripper_xml = sequenceWrapperXML(
+    "CloseGripper", 
+    {
+      gripper_close_action_xml,
+      graspable.attach_xml,
+      yellow_lamp_on_xml,
+    });
+  std::string open_gripper_xml = sequenceWrapperXML(
+    "OpenGripper",
+    {
+      gripper_open_action_xml,
+      graspable.detach_xml,
+      yellow_lamp_off_xml
+    });
 
   // Composed action sequences:
   std::string pick_sequence_xml = 
@@ -190,22 +216,6 @@ int main(int argc, char ** argv)
   // Composed move sequences
   std::string home_sequence_xml =
     sequenceWrapperXML(rp.prefix + "ComposedHomeSequence", {to_drop_exit_xml, to_rest_xml});
-
-  // Define lamp keys on the blackboard for HMI + runtime updates via SetKeyBoolValue
-  manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "green_lamp", "bool", false);
-  manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "yellow_lamp", "bool", false);
-  // manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "red_lamp", "bool", false);
-
-  std::string green_lamp_on_xml = buildSetKeyBool(rp.prefix, "SetGreenLampOn", "green_lamp", true);
-  std::string green_lamp_off_xml = buildSetKeyBool(rp.prefix, "SetGreenLampOff", "green_lamp", false);
-  std::string yellow_lamp_on_xml = buildSetKeyBool(rp.prefix, "SetYellowLampOn", "yellow_lamp", true);
-  std::string yellow_lamp_off_xml = buildSetKeyBool(rp.prefix, "SetYellowLampOff", "yellow_lamp", false);
-  // std::string red_lamp_on_xml = buildSetKeyBool(rp.prefix, "SetRedLampOn", "red_lamp", true);
-  // std::string red_lamp_off_xml = buildSetKeyBool(rp.prefix, "SetRedLampOff", "red_lamp", false);
-
-  // Generic snippet to publish the current lamp states; you can insert this wherever you want
-  std::string update_color_signals_xml = manymove_color_signal::buildPublishSignalColorXML(
-    "UpdateColorSignals", "green_lamp", "yellow_lamp", "stop_execution", "/signal_column");
 
   // ----------------------------------------------------------------------------
   // 6) Assembling the tree

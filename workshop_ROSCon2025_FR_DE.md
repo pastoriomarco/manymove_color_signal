@@ -651,7 +651,26 @@ We set a new cycle to update the signals:
     -1);
 ```
 
-We drop the commands to update the blackboard keys in the cycle:
+We update the gripper cycle to manage the yellow lamp:
+
+```bash
+  std::string close_gripper_xml = sequenceWrapperXML(
+    "CloseGripper", 
+    {
+      gripper_close_action_xml,
+      graspable.attach_xml,
+      yellow_lamp_on_xml,
+    });
+  std::string open_gripper_xml = sequenceWrapperXML(
+    "OpenGripper",
+    {
+      gripper_open_action_xml,
+      graspable.detach_xml,
+      yellow_lamp_off_xml
+    });
+```
+
+We drop the commands to update the green lamp in the cycle:
 
 ```bash
   std::string repeat_forever_robot_cycle_xml = repeatSequenceWrapperXML(
