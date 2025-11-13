@@ -22,8 +22,63 @@ int main(int argc, char ** argv)
 
   RobotParams rp = defineRobotParams(node, blackboard, keys);
 
+  // Helper BB keys
+  std::string tcp_frame_name = rp.prefix + rp.tcp_frame;
+  blackboard->set("tcp_frame_name_key", tcp_frame_name);
+  blackboard->set("touch_links", rp.contact_links);
+
+  blackboard->set("world_frame_key", "world");
+  blackboard->set("identity_transform_key", std::vector<double>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+
   // ----------------------------------------------------------------------------
-  // 2) Setup joint targets, poses and moves
+  // 2) Build blocks for objects handling
+  // ----------------------------------------------------------------------------
+  
+  // This is the unified helper function to create all the snippets to handle scene's objects
+  ObjectSnippets ground = createObjectSnippets(
+    blackboard, keys, "ground",  // object name
+    "box",  // shape
+    createPoseRPY(0.0, 0.0, -0.051, 0.0, 0.0, 0.0),  // pose of the object
+    {1.0, 1.0, 0.1},  // primitive dimensions
+    "",  // mesh file path
+    {1.0, 1.0, 1.0},  // scale
+    "",  // link name to attach/detach
+    {}  // contact links to attach/detach
+  );
+
+  ObjectSnippets wall = createObjectSnippets(
+    blackboard, keys, "wall", "box", createPoseRPY(0.0, -0.15, 0.1, 0.0, 0.0, 0.0),
+    {1.0, 0.02, 0.2});
+
+  ObjectSnippets graspable = createObjectSnippets(
+    blackboard, keys, "graspable", "box", createPoseRPY(0.15, -0.35, 0.1, 0.0, 0.0, -0.785),
+    {0.1, 0.01, 0.01}, "", {1.0, 1.0, 1.0}, "tcp_frame_name_key", "touch_links");
+
+  // ----------------------------------------------------------------------------
+  // 3) Define the variable poses
+  // ----------------------------------------------------------------------------
+
+  // Translate get_pose_action to xml tree leaf
+  std::string get_pick_pose_xml = buildObjectActionXML(
+    "get_pick_pose", createGetObjectPose(
+      "graspable_key", "pick_target_key", "world_frame_key",
+      "pick_pre_transform_xyz_rpy_1_key", "post_transform_xyz_rpy_1_key"));
+
+  std::string get_approach_pose_xml = buildObjectActionXML(
+    "get_approach_pose", createGetObjectPose(
+      "graspable_key", "approach_pick_target_key", "world_frame_key",
+      "approach_pre_transform_xyz_rpy_1_key", "post_transform_xyz_rpy_1_key"));
+
+  blackboard->set(
+    "pick_pre_transform_xyz_rpy_1_key", std::vector<double>{0.0, 0.0, -0.1675, 0.0, 0.0, 0.0});
+  blackboard->set(
+    "approach_pre_transform_xyz_rpy_1_key", std::vector<double>{0.0, 0.0, -0.225, 0.0, 0.0, 0.0});
+  blackboard->set(
+    "post_transform_xyz_rpy_1_key", std::vector<double>{0.0, 0.0, 0.0, 3.14, 0.0, -1.57});
+
+
+  // ----------------------------------------------------------------------------
+  // 4) Setup joint targets, poses and moves
   // ----------------------------------------------------------------------------
 
   auto move_configs = defineMovementConfigs();
@@ -47,22 +102,20 @@ int main(int argc, char ** argv)
   slow_move.plan_number_limit = max_move.plan_number_limit;
   slow_move.plan_number_target = max_move.plan_number_target;
 
-  std::vector<double> joint_rest = {0.0, -1.57, 1.57, -1.57, -1.57, 0.0};
+  // Creating targets and poses
   std::string named_home = "home";
 
   blackboard->set("pick_target_key", Pose());
   blackboard->set("approach_pick_target_key", Pose());
 
   Pose drop_target = createPoseRPY(0.3, 0.3, 0.25, 3.14, 0.0, -1.57);
-  // Pose drop_target = createPoseRPY(0.2, 0.3, 0.4, 3.14, 0.785, -1.57);
   blackboard->set("drop_target_key", drop_target);
 
   Pose approach_drop_target = drop_target;
-  // approach_drop_target.position.y -= 0.05;
   approach_drop_target.position.z += 0.05;
   blackboard->set("approach_drop_target_key", approach_drop_target);
 
-  std::string tcp_frame_name = rp.prefix + rp.tcp_frame;
+  std::vector<double> joint_rest = {0.0, -1.57, 1.57, -1.57, -1.57, 0.0};
 
   std::vector<Move> rest_position = {
     {rp.prefix, tcp_frame_name, "joint", move_configs["max_move"], "", joint_rest},
@@ -77,7 +130,6 @@ int main(int argc, char ** argv)
   std::vector<Move> drop_sequence = {
     {rp.prefix, tcp_frame_name, "cartesian", move_configs["cartesian_mid_move"],
       "approach_pick_target_key"},
-    // {rp.prefix, tcp_frame_name, "joint", move_configs["max_move"], "", joint_rest},
     {rp.prefix, tcp_frame_name, "pose", move_configs["max_move"], "approach_drop_target_key"},
     {rp.prefix, tcp_frame_name, "cartesian", move_configs["cartesian_slow_move"],
       "drop_target_key"},
@@ -97,85 +149,48 @@ int main(int argc, char ** argv)
     buildMoveXML(rp.prefix, rp.prefix + "pick", pick_sequence, blackboard, false, 3);
   std::string drop_object_xml =
     buildMoveXML(rp.prefix, rp.prefix + "drop", drop_sequence, blackboard, false, 3);
-  std::string to_drop_exit_xml = buildMoveXML(
-    rp.prefix, rp.prefix + "home", exit_drop_position,
-    blackboard, false, 3);
-
-  std::string prep_sequence_xml =
-    sequenceWrapperXML(rp.prefix + "ComposedPrepSequence", {to_rest_reset_xml});
-  std::string home_sequence_xml =
-    sequenceWrapperXML(rp.prefix + "ComposedHomeSequence", {to_drop_exit_xml, to_rest_xml});
-
+  std::string to_drop_exit_xml = 
+    buildMoveXML(rp.prefix, rp.prefix + "exit", exit_drop_position, blackboard, false, 3);
+    
   // ----------------------------------------------------------------------------
-  // 3) Build blocks for objects handling
-  // ----------------------------------------------------------------------------
-
-  blackboard->set("tcp_frame_name_key", tcp_frame_name);
-  blackboard->set("touch_links", rp.contact_links);
-
-  blackboard->set("world_frame_key", "world");
-  blackboard->set("identity_transform_key", std::vector<double>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+  // 5) Build higher level snippets
+  // ----------------------------------------------------------------------------  
   
-  // Objects in the scene:
-  // This is the new unified helper function to create all the snippets to handle any kind of
-  // objects
-  ObjectSnippets ground = createObjectSnippets(
-    blackboard, keys, "ground",  // object name
-    "box",  // shape
-    createPoseRPY(0.0, 0.0, -0.051, 0.0, 0.0, 0.0),  // pose of the object*/
-    {1.0, 1.0, 0.1},  // primitive dimensions
-    "",  // mesh file path
-    {1.0, 1.0, 1.0},  // scale
-    "",  // link name to attach/detach
-    {}  // contact links to attach/detach
-  );
+  // Objects handling
+  std::string spawn_fixed_objects_xml =
+    sequenceWrapperXML("SpawnFixedObjects", {ground.init_xml, wall.init_xml});
 
-  ObjectSnippets wall = createObjectSnippets(
-    blackboard, keys, "wall", "box", createPoseRPY(0.0, -0.15, 0.1, 0.0, 0.0, 0.0),
-    {1.0, 0.02, 0.2});
-
-  ObjectSnippets graspable = createObjectSnippets(
-    blackboard, keys, "graspable", "box", createPoseRPY(0.15, -0.35, 0.1, 0.0, 0.0, -0.785),
-    {0.1, 0.01, 0.01}, "", {1.0, 1.0, 1.0}, "tcp_frame_name_key", "touch_links");
-
-  blackboard->set(
-    "pick_pre_transform_xyz_rpy_1_key", std::vector<double>{0.0, 0.0, -0.1675, 0.0, 0.0, 0.0});
-  blackboard->set(
-    "approach_pre_transform_xyz_rpy_1_key", std::vector<double>{0.0, 0.0, -0.225, 0.0, 0.0, 0.0});
-  blackboard->set(
-    "post_transform_xyz_rpy_1_key", std::vector<double>{0.0, 0.0, 0.0, 3.14, 0.0, -1.57});
-
-  // Translate get_pose_action to xml tree leaf
-  std::string get_pick_pose_xml = buildObjectActionXML(
-    "get_pick_pose", createGetObjectPose(
-      "graspable_key", "pick_target_key", "world_frame_key",
-      "pick_pre_transform_xyz_rpy_1_key", "post_transform_xyz_rpy_1_key"));
-
-  std::string get_approach_pose_xml = buildObjectActionXML(
-    "get_approach_pose", createGetObjectPose(
-      "graspable_key", "approach_pick_target_key", "world_frame_key",
-      "approach_pre_transform_xyz_rpy_1_key", "post_transform_xyz_rpy_1_key"));
-
-  // ----------------------------------------------------------------------------
-  // 4) Define Signals calls
-  // ----------------------------------------------------------------------------
+  std::string get_grasp_object_poses_xml =
+    sequenceWrapperXML("GetGraspPoses", {get_pick_pose_xml, get_approach_pose_xml});
+  std::string spawn_graspable_objects_xml =
+    sequenceWrapperXML("SpawnGraspableObjects", {graspable.init_xml, get_grasp_object_poses_xml});
   
+  // Gripper commands
   const std::string gripper_close_action_xml =
     ("<GripperCommandAction position=\"0.75\" max_effort=\"40.0\" action_server=\"" +
     rp.gripper_action_server + "\"/>");
   const std::string gripper_open_action_xml =
     ("<GripperCommandAction position=\"0.25\" max_effort=\"40.0\" action_server=\"" +
     rp.gripper_action_server + "\"/>");
-  std::string check_robot_state_xml = buildCheckRobotStateXML(
-    rp.prefix, "CheckRobot", "robot_ready", "error_code", "robot_mode", "robot_state", "robot_msg");
-  std::string reset_robot_state_xml = buildResetRobotStateXML(rp.prefix, "ResetRobot", rp.model);
 
-  std::string check_reset_robot_xml =
-    (rp.is_real ?
-    fallbackWrapperXML(
-      rp.prefix + "CheckResetFallback", {check_robot_state_xml, reset_robot_state_xml}) :
-    "<Delay delay_msec=\"250\">\n<AlwaysSuccess />\n</Delay>\n");
-  
+  std::string close_gripper_xml = 
+  sequenceWrapperXML("CloseGripper", {gripper_close_action_xml, graspable.attach_xml});
+  std::string open_gripper_xml =
+    sequenceWrapperXML("OpenGripper", {gripper_open_action_xml, graspable.detach_xml});
+
+  // Composed action sequences:
+  std::string pick_sequence_xml = 
+    sequenceWrapperXML("PickSequence", {pick_object_xml, close_gripper_xml});
+  std::string drop_sequence_xml = 
+    sequenceWrapperXML("DropSequence", {drop_object_xml, open_gripper_xml});
+
+  std::string reset_graspable_objects_xml =
+    sequenceWrapperXML("reset_graspable_objects", {open_gripper_xml, graspable.remove_xml});
+
+  // Composed move sequences
+  std::string home_sequence_xml =
+    sequenceWrapperXML(rp.prefix + "ComposedHomeSequence", {to_drop_exit_xml, to_rest_xml});
+
   // Define lamp keys on the blackboard for HMI + runtime updates via SetKeyBoolValue
   manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "green_lamp", "bool", false);
   manymove_cpp_trees::defineVariableKey<bool>(node, blackboard, keys, "yellow_lamp", "bool", false);
@@ -193,27 +208,16 @@ int main(int argc, char ** argv)
     "UpdateColorSignals", "green_lamp", "yellow_lamp", "stop_execution", "/signal_column");
 
   // ----------------------------------------------------------------------------
-  // 5) Full behavior composition
+  // 6) Assembling the tree
   // ----------------------------------------------------------------------------
 
-  std::string spawn_fixed_objects_xml =
-    sequenceWrapperXML("SpawnFixedObjects", {ground.init_xml, wall.init_xml});
-  std::string spawn_graspable_objects_xml =
-    sequenceWrapperXML("SpawnGraspableObjects", {graspable.init_xml});
-  std::string get_grasp_object_poses_xml =
-    sequenceWrapperXML("GetGraspPoses", {get_pick_pose_xml, get_approach_pose_xml});
-  std::string go_to_pick_pose_xml = sequenceWrapperXML("GoToPickPose", {pick_object_xml});
-  std::string close_gripper_xml = sequenceWrapperXML(
-    "CloseGripper", {gripper_close_action_xml, graspable.attach_xml});
-  std::string open_gripper_xml =
-    sequenceWrapperXML("OpenGripper", {gripper_open_action_xml, graspable.detach_xml});
-
-  std::string reset_graspable_objects_xml =
-    sequenceWrapperXML("reset_graspable_objects", {open_gripper_xml, graspable.remove_xml});
-
   std::string startup_sequence_xml = sequenceWrapperXML(
-    "StartUpSequence", {check_reset_robot_xml, spawn_fixed_objects_xml, 
-      open_gripper_xml, reset_graspable_objects_xml, prep_sequence_xml});
+    "StartUpSequence", 
+    {
+      spawn_fixed_objects_xml, 
+      reset_graspable_objects_xml,
+      to_rest_reset_xml
+    });
 
   std::string repeat_forever_color_signal_update_sequence_xml = repeatSequenceWrapperXML(
     "RepeatForeverColorSignalUpdate",
@@ -226,15 +230,11 @@ int main(int argc, char ** argv)
   std::string repeat_forever_robot_cycle_xml = repeatSequenceWrapperXML(
     "RepeatForeverRobotCycle",
     {
-      check_reset_robot_xml,
       spawn_graspable_objects_xml,
-      get_grasp_object_poses_xml,
       green_lamp_on_xml,
-      go_to_pick_pose_xml,
-      close_gripper_xml,
+      pick_sequence_xml,
       green_lamp_off_xml,
-      drop_object_xml,
-      open_gripper_xml,
+      drop_sequence_xml,
       home_sequence_xml,
       graspable.remove_xml
     },
@@ -259,7 +259,7 @@ int main(int argc, char ** argv)
     node->get_logger(), "=== Programmatically Generated Tree XML ===\n%s", final_tree_xml.c_str());
 
   // ----------------------------------------------------------------------------
-  // 6) Register node types and build tree
+  // 7) Register node types and build tree
   // ----------------------------------------------------------------------------
 
   BT::BehaviorTreeFactory factory;
