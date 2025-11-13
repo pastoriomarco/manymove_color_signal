@@ -33,11 +33,11 @@ import yaml
 
 DEFAULT_UR_KINEMATICS = {
     # Conservative defaults that work across ROS 2 releases when upstream configs omit them.
-    'ur_manipulator': {
-        'kinematics_solver': 'kdl_kinematics_plugin/KDLKinematicsPlugin',
-        'kinematics_solver_search_resolution': 0.005,
-        'kinematics_solver_timeout': 0.005,
-        'kinematics_solver_attempts': 3,
+    "ur_manipulator": {
+        "kinematics_solver": "kdl_kinematics_plugin/KDLKinematicsPlugin",
+        "kinematics_solver_search_resolution": 0.005,
+        "kinematics_solver_timeout": 0.005,
+        "kinematics_solver_attempts": 3,
     }
 }
 
@@ -45,211 +45,212 @@ DEFAULT_UR_KINEMATICS = {
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
-    with open(absolute_file_path, 'r', encoding='utf-8') as file:
+    with open(absolute_file_path, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
 
 def launch_setup(context, *args, **kwargs):
-    ur_type = LaunchConfiguration('ur_type')
-    robot_ip = LaunchConfiguration('robot_ip')
-    use_fake_hardware = LaunchConfiguration('use_fake_hardware')
-    initial_joint_controller = LaunchConfiguration('initial_joint_controller')
-    launch_rviz = LaunchConfiguration('launch_rviz')
-    launch_servo = LaunchConfiguration('launch_servo')
-    use_sim_time = LaunchConfiguration('use_sim_time')
-    publish_robot_description_semantic = LaunchConfiguration('publish_robot_description_semantic')
-    warehouse_sqlite_path = LaunchConfiguration('warehouse_sqlite_path')
-    controller_spawner_timeout = LaunchConfiguration('controller_spawner_timeout')
+    ur_type = LaunchConfiguration("ur_type")
+    robot_ip = LaunchConfiguration("robot_ip")
+    use_fake_hardware = LaunchConfiguration("use_fake_hardware")
+    initial_joint_controller = LaunchConfiguration("initial_joint_controller")
+    launch_rviz = LaunchConfiguration("launch_rviz")
+    launch_servo = LaunchConfiguration("launch_servo")
+    use_sim_time = LaunchConfiguration("use_sim_time")
+    publish_robot_description_semantic = LaunchConfiguration(
+        "publish_robot_description_semantic"
+    )
+    warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
+    controller_spawner_timeout = LaunchConfiguration("controller_spawner_timeout")
 
-    description_package = LaunchConfiguration('description_package')
-    description_file = LaunchConfiguration('description_file')
-    safety_limits = LaunchConfiguration('safety_limits')
-    safety_pos_margin = LaunchConfiguration('safety_pos_margin')
-    safety_k_position = LaunchConfiguration('safety_k_position')
-    moveit_config_package = LaunchConfiguration('moveit_config_package')
-    moveit_config_file = LaunchConfiguration('moveit_config_file')
-    moveit_joint_limits_file = LaunchConfiguration('moveit_joint_limits_file')
-    limited = LaunchConfiguration('limited')
-    srdf_package = LaunchConfiguration('srdf_package')
-    gripper_action_server_cfg = LaunchConfiguration('gripper_action_server')
+    description_package = LaunchConfiguration("description_package")
+    description_file = LaunchConfiguration("description_file")
+    safety_limits = LaunchConfiguration("safety_limits")
+    safety_pos_margin = LaunchConfiguration("safety_pos_margin")
+    safety_k_position = LaunchConfiguration("safety_k_position")
+    moveit_config_package = LaunchConfiguration("moveit_config_package")
+    moveit_config_file = LaunchConfiguration("moveit_config_file")
+    moveit_joint_limits_file = LaunchConfiguration("moveit_joint_limits_file")
+    limited = LaunchConfiguration("limited")
+    srdf_package = LaunchConfiguration("srdf_package")
+    gripper_action_server = LaunchConfiguration("gripper_action_server")
+    contact_links = LaunchConfiguration("contact_links")
 
-    prefix_raw = LaunchConfiguration('prefix').perform(context)
-    planner_type = LaunchConfiguration('planner_type').perform(context)
-    planning_group = LaunchConfiguration('planning_group').perform(context)
-    base_frame = LaunchConfiguration('base_frame').perform(context)
-    tcp_frame = LaunchConfiguration('tcp_frame').perform(context)
-    traj_controller = LaunchConfiguration('traj_controller').perform(context)
+    prefix_raw = LaunchConfiguration("prefix").perform(context)
+    planner_type = LaunchConfiguration("planner_type").perform(context)
+    planning_group = LaunchConfiguration("planning_group").perform(context)
+    base_frame = LaunchConfiguration("base_frame").perform(context)
+    tcp_frame = LaunchConfiguration("tcp_frame").perform(context)
+    traj_controller = LaunchConfiguration("traj_controller").perform(context)
 
     prefix_clean = prefix_raw.strip('"')
-    set_tf_prefix = SetLaunchConfiguration('tf_prefix', prefix_clean)
+    set_tf_prefix = SetLaunchConfiguration("tf_prefix", prefix_clean)
 
-    logger = logging.get_logger('ur_movegroup_fake_cpp_trees_color_signal.launch')
-
-    def normalize_gripper_action(raw_value: str) -> str:
-        stripped = raw_value.lstrip('/')
-        if stripped.endswith('gripper_command'):
-            converted = stripped[: -len('gripper_command')] + 'gripper_cmd'
-            logger.warning(
-                f"Parameter 'gripper_action_server' value '{raw_value}' uses deprecated suffix "
-                f"'gripper_command'; using '{converted}' instead."
-            )
-            return converted
-        return stripped
-
-    default_gripper_action = 'robotiq_gripper_controller/gripper_cmd'
-    gripper_action_value = gripper_action_server_cfg.perform(context)
-    gripper_action_stripped = normalize_gripper_action(gripper_action_value)
-    if not gripper_action_stripped:
-        gripper_action_server = ''
-    elif gripper_action_stripped == default_gripper_action:
-        resolved_action = (
-            f'{prefix_clean}{gripper_action_stripped}' if prefix_clean else gripper_action_stripped
-        )
-        gripper_action_server = f'/{resolved_action}'
-    else:
-        gripper_action_server = (
-            gripper_action_value
-            if gripper_action_value.startswith('/')
-            else f'/{gripper_action_stripped}'
-        )
+    logger = logging.get_logger("ur_movegroup_fake_cpp_trees_color_signal.launch")
 
     ur_type_value = ur_type.perform(context)
     use_fake_value = use_fake_hardware.perform(context).lower()
-    is_robot_real = use_fake_value not in ('true', '1', 't', 'yes', 'on')
-    ros_distro = os.environ.get('ROS_DISTRO', '').strip().lower()
-    use_jazzy_fake_minimal = use_fake_value == 'true' and ros_distro == 'jazzy'
+    is_robot_real = use_fake_value not in ("true", "1", "t", "yes", "on")
+    ros_distro = os.environ.get("ROS_DISTRO", "").strip().lower()
+    use_jazzy_fake_minimal = use_fake_value == "true" and ros_distro == "jazzy"
 
-    if use_jazzy_fake_minimal and traj_controller == 'scaled_joint_trajectory_controller':
-        traj_controller = 'joint_trajectory_controller'
+    if (
+        use_jazzy_fake_minimal
+        and traj_controller == "scaled_joint_trajectory_controller"
+    ):
+        traj_controller = "joint_trajectory_controller"
 
     moveit_config_pkg_name = moveit_config_package.perform(context)
 
     joint_limit_params = PathJoinSubstitution(
-        [FindPackageShare('ur_description'), 'config', ur_type, 'joint_limits.yaml']
+        [FindPackageShare("ur_description"), "config", ur_type, "joint_limits.yaml"]
     )
     kinematics_params = PathJoinSubstitution(
-        [FindPackageShare('ur_description'), 'config', ur_type, 'default_kinematics.yaml']
+        [
+            FindPackageShare("ur_description"),
+            "config",
+            ur_type,
+            "default_kinematics.yaml",
+        ]
     )
     physical_params = PathJoinSubstitution(
-        [FindPackageShare('ur_description'), 'config', ur_type, 'physical_parameters.yaml']
+        [
+            FindPackageShare("ur_description"),
+            "config",
+            ur_type,
+            "physical_parameters.yaml",
+        ]
     )
     visual_params = PathJoinSubstitution(
-        [FindPackageShare('ur_description'), 'config', ur_type, 'visual_parameters.yaml']
+        [
+            FindPackageShare("ur_description"),
+            "config",
+            ur_type,
+            "visual_parameters.yaml",
+        ]
     )
 
     robot_description_content = Command(
         [
-            PathJoinSubstitution([FindExecutable(name='xacro')]),
-            ' ',
-            PathJoinSubstitution([FindPackageShare(description_package), 'urdf', description_file]),
-            ' ',
-            'robot_ip:=',
+            PathJoinSubstitution([FindExecutable(name="xacro")]),
+            " ",
+            PathJoinSubstitution(
+                [FindPackageShare(description_package), "urdf", description_file]
+            ),
+            " ",
+            "robot_ip:=",
             robot_ip,
-            ' ',
-            'joint_limit_params:=',
+            " ",
+            "joint_limit_params:=",
             joint_limit_params,
-            ' ',
-            'kinematics_params:=',
+            " ",
+            "kinematics_params:=",
             kinematics_params,
-            ' ',
-            'physical_params:=',
+            " ",
+            "physical_params:=",
             physical_params,
-            ' ',
-            'visual_params:=',
+            " ",
+            "visual_params:=",
             visual_params,
-            ' ',
-            'safety_limits:=',
+            " ",
+            "safety_limits:=",
             safety_limits,
-            ' ',
-            'safety_pos_margin:=',
+            " ",
+            "safety_pos_margin:=",
             safety_pos_margin,
-            ' ',
-            'safety_k_position:=',
+            " ",
+            "safety_k_position:=",
             safety_k_position,
-            ' ',
-            'name:=',
-            'ur',
-            ' ',
-            'ur_type:=',
+            " ",
+            "name:=",
+            "ur",
+            " ",
+            "ur_type:=",
             ur_type,
-            ' ',
-            'script_filename:=ros_control.urscript',
-            ' ',
-            'input_recipe_filename:=rtde_input_recipe.txt',
-            ' ',
-            'output_recipe_filename:=rtde_output_recipe.txt',
-            ' ',
-            'limited:=',
+            " ",
+            "script_filename:=ros_control.urscript",
+            " ",
+            "input_recipe_filename:=rtde_input_recipe.txt",
+            " ",
+            "output_recipe_filename:=rtde_output_recipe.txt",
+            " ",
+            "limited:=",
             limited,
-            ' ',
-            'prefix:=',
-            LaunchConfiguration('prefix'),
-            ' ',
-            'tf_prefix:=',
-            LaunchConfiguration('tf_prefix'),
-            ' ',
-            'use_fake_hardware:=',
+            " ",
+            "prefix:=",
+            LaunchConfiguration("prefix"),
+            " ",
+            "tf_prefix:=",
+            LaunchConfiguration("tf_prefix"),
+            " ",
+            "use_fake_hardware:=",
             use_fake_hardware,
-            ' ',
-            'fake_sensor_commands:=false',
-            ' ',
-            'headless_mode:=false',
-            ' ',
-            'use_tool_communication:=false',
-            ' ',
+            " ",
+            "fake_sensor_commands:=false",
+            " ",
+            "headless_mode:=false",
+            " ",
+            "use_tool_communication:=false",
+            " ",
         ]
     )
     robot_description = {
-        'robot_description': ParameterValue(robot_description_content, value_type=str)
+        "robot_description": ParameterValue(robot_description_content, value_type=str)
     }
 
     moveit_config_file_value = moveit_config_file.perform(context)
-    if moveit_config_file_value.startswith('package://'):
+    if moveit_config_file_value.startswith("package://"):
         srdf_path = moveit_config_file_value
-    elif moveit_config_file_value.startswith('/') or moveit_config_file_value.startswith('file://'):
+    elif moveit_config_file_value.startswith(
+        "/"
+    ) or moveit_config_file_value.startswith("file://"):
         srdf_path = moveit_config_file_value
-    elif '/' in moveit_config_file_value:
-        srdf_path = PathJoinSubstitution([FindPackageShare(srdf_package), moveit_config_file])
+    elif "/" in moveit_config_file_value:
+        srdf_path = PathJoinSubstitution(
+            [FindPackageShare(srdf_package), moveit_config_file]
+        )
     else:
         srdf_path = PathJoinSubstitution(
-            [FindPackageShare(srdf_package), 'srdf', moveit_config_file]
+            [FindPackageShare(srdf_package), "srdf", moveit_config_file]
         )
 
     robot_description_semantic_content = Command(
         [
-            PathJoinSubstitution([FindExecutable(name='xacro')]),
-            ' ',
+            PathJoinSubstitution([FindExecutable(name="xacro")]),
+            " ",
             srdf_path,
-            ' ',
-            'name:=',
-            'ur',
-            ' ',
-            'prefix:=',
-            LaunchConfiguration('prefix'),
-            ' ',
-            'limited:=',
+            " ",
+            "name:=",
+            "ur",
+            " ",
+            "prefix:=",
+            LaunchConfiguration("prefix"),
+            " ",
+            "limited:=",
             limited,
-            ' ',
+            " ",
         ]
     )
-    robot_description_semantic = {'robot_description_semantic': robot_description_semantic_content}
+    robot_description_semantic = {
+        "robot_description_semantic": robot_description_semantic_content
+    }
 
     publish_robot_description_semantic_param = {
-        'publish_robot_description_semantic': publish_robot_description_semantic
+        "publish_robot_description_semantic": publish_robot_description_semantic
     }
 
     raw_kinematics_yaml = load_yaml(
-        moveit_config_pkg_name, os.path.join('config', 'kinematics.yaml')
+        moveit_config_pkg_name, os.path.join("config", "kinematics.yaml")
     )
     kinematics_data: dict[str, dict] = {}
     if isinstance(raw_kinematics_yaml, dict):
-        if 'robot_description_kinematics' in raw_kinematics_yaml:
-            kinematics_data = raw_kinematics_yaml['robot_description_kinematics']
+        if "robot_description_kinematics" in raw_kinematics_yaml:
+            kinematics_data = raw_kinematics_yaml["robot_description_kinematics"]
         else:
             kinematics_data = (
-                raw_kinematics_yaml.get('/**', {})
-                .get('ros__parameters', {})
-                .get('robot_description_kinematics', {})
+                raw_kinematics_yaml.get("/**", {})
+                .get("ros__parameters", {})
+                .get("robot_description_kinematics", {})
             )
             if not kinematics_data:
                 kinematics_data = {
@@ -257,24 +258,24 @@ def launch_setup(context, *args, **kwargs):
                     for key, value in raw_kinematics_yaml.items()
                     if isinstance(value, dict)
                     and (
-                        'kinematics_solver' in value
-                        or any(k.startswith('kinematics_') for k in value.keys())
+                        "kinematics_solver" in value
+                        or any(k.startswith("kinematics_") for k in value.keys())
                     )
                 }
 
-    fallback_candidates = {planning_group, 'ur_manipulator'}
-    fallback_candidates.discard('')
+    fallback_candidates = {planning_group, "ur_manipulator"}
+    fallback_candidates.discard("")
     for group_name in fallback_candidates:
         existing_entry = kinematics_data.get(group_name, {})
         needs_solver = not isinstance(existing_entry, dict) or not existing_entry.get(
-            'kinematics_solver'
+            "kinematics_solver"
         )
         if not needs_solver:
             continue
 
-        default_config = DEFAULT_UR_KINEMATICS.get(group_name) or DEFAULT_UR_KINEMATICS.get(
-            'ur_manipulator'
-        )
+        default_config = DEFAULT_UR_KINEMATICS.get(
+            group_name
+        ) or DEFAULT_UR_KINEMATICS.get("ur_manipulator")
         if not default_config:
             continue
 
@@ -287,120 +288,133 @@ def launch_setup(context, *args, **kwargs):
             "Falling back to KDL defaults to keep pose goals working on ROS 2 Jazzy."
         )
     robot_description_kinematics = (
-        {'robot_description_kinematics': kinematics_data} if kinematics_data else None
+        {"robot_description_kinematics": kinematics_data} if kinematics_data else None
     )
     robot_description_planning = {
-        'robot_description_planning': load_yaml(
+        "robot_description_planning": load_yaml(
             moveit_config_pkg_name,
-            os.path.join('config', moveit_joint_limits_file.perform(context)),
+            os.path.join("config", moveit_joint_limits_file.perform(context)),
         )
     }
 
     cartesian_limits = load_yaml(
-        'manymove_bringup', os.path.join('config', 'ur', 'pilz_cartesian_limits.yaml')
+        "manymove_bringup", os.path.join("config", "ur", "pilz_cartesian_limits.yaml")
     )
     if cartesian_limits:
-        robot_description_planning['robot_description_planning'].setdefault('cartesian_limits', {})
-        robot_description_planning['robot_description_planning']['cartesian_limits'].update(
-            cartesian_limits.get('cartesian_limits', {})
+        robot_description_planning["robot_description_planning"].setdefault(
+            "cartesian_limits", {}
         )
+        robot_description_planning["robot_description_planning"][
+            "cartesian_limits"
+        ].update(cartesian_limits.get("cartesian_limits", {}))
 
     ompl_planning_relpath = os.path.join(
-        'config',
-        'ur',
-        'ompl_planning.legacy.yaml' if use_legacy_moveit_adapter_format() else 'ompl_planning.yaml',
+        "config",
+        "ur",
+        "ompl_planning.legacy.yaml"
+        if use_legacy_moveit_adapter_format()
+        else "ompl_planning.yaml",
     )
     planning_pipeline_files = {
-        'ompl': (
-            'manymove_bringup',
+        "ompl": (
+            "manymove_bringup",
             ompl_planning_relpath,
         ),
-        'chomp': (
-            'moveit_resources_panda_moveit_config',
-            os.path.join('config', 'chomp_planning.yaml'),
+        "chomp": (
+            "moveit_resources_panda_moveit_config",
+            os.path.join("config", "chomp_planning.yaml"),
         ),
-        'pilz_industrial_motion_planner': (
-            'moveit_resources_panda_moveit_config',
-            os.path.join('config', 'pilz_industrial_motion_planner_planning.yaml'),
+        "pilz_industrial_motion_planner": (
+            "moveit_resources_panda_moveit_config",
+            os.path.join("config", "pilz_industrial_motion_planner_planning.yaml"),
         ),
     }
     planning_pipeline_config = {
-        'planning_pipelines': list(planning_pipeline_files.keys()),
-        'default_planning_pipeline': 'ompl',
+        "planning_pipelines": list(planning_pipeline_files.keys()),
+        "default_planning_pipeline": "ompl",
     }
     for pipeline_name, (pkg, rel_path) in planning_pipeline_files.items():
         planning_pipeline_config[pipeline_name] = normalize_pipeline_config(
             load_yaml(pkg, rel_path)
         )
     for plugin_name, plugin in {
-        'chomp': 'chomp_interface/CHOMPPlanner',
-        'pilz_industrial_motion_planner': 'pilz_industrial_motion_planner/CommandPlanner',
+        "chomp": "chomp_interface/CHOMPPlanner",
+        "pilz_industrial_motion_planner": "pilz_industrial_motion_planner/CommandPlanner",
     }.items():
         pipeline_entry = planning_pipeline_config.get(plugin_name)
         if isinstance(pipeline_entry, dict):
-            pipeline_entry['planning_plugin'] = plugin
+            pipeline_entry["planning_plugin"] = plugin
     try:
-        if 'planner_configs' not in planning_pipeline_config.get('ompl', {}):
+        if "planner_configs" not in planning_pipeline_config.get("ompl", {}):
             ompl_defaults = load_yaml(
-                'moveit_configs_utils', os.path.join('default_configs', 'ompl_defaults.yaml')
+                "moveit_configs_utils",
+                os.path.join("default_configs", "ompl_defaults.yaml"),
             )
             if isinstance(ompl_defaults, dict):
-                planning_pipeline_config['ompl'].update(ompl_defaults)
+                planning_pipeline_config["ompl"].update(ompl_defaults)
     except Exception:
         pass
     planning_pipeline_config = normalize_pipeline_config(planning_pipeline_config)
 
-    MOVEIT_CONTROLLER = 'moveit_simple_controller_manager/MoveItSimpleControllerManager'
+    MOVEIT_CONTROLLER = "moveit_simple_controller_manager/MoveItSimpleControllerManager"
 
     controllers_yaml = None
-    controllers_config_relpath = ''
+    controllers_config_relpath = ""
     if use_jazzy_fake_minimal:
-        controllers_config_relpath = os.path.join('config', 'ur', 'controllers_fake_minimal.yaml')
-        controllers_yaml = load_yaml('manymove_bringup', controllers_config_relpath)
+        controllers_config_relpath = os.path.join(
+            "config", "ur", "controllers_fake_minimal.yaml"
+        )
+        controllers_yaml = load_yaml("manymove_bringup", controllers_config_relpath)
     else:
         try:
-            controllers_config_relpath = resolve_moveit_controller_config(moveit_config_pkg_name)
-            controllers_yaml = load_yaml(moveit_config_pkg_name, controllers_config_relpath)
+            controllers_config_relpath = resolve_moveit_controller_config(
+                moveit_config_pkg_name
+            )
+            controllers_yaml = load_yaml(
+                moveit_config_pkg_name, controllers_config_relpath
+            )
         except (FileNotFoundError, OSError) as exc:
-            controllers_config_relpath = os.path.join('config', 'ur', 'controllers_fake_minimal.yaml')
+            controllers_config_relpath = os.path.join(
+                "config", "ur", "controllers_fake_minimal.yaml"
+            )
             logger.warning(
                 f"MoveIt controller config is unavailable ({exc}). Falling back to "
                 f"'{controllers_config_relpath}' from package 'manymove_bringup'."
             )
-            controllers_yaml = load_yaml('manymove_bringup', controllers_config_relpath)
+            controllers_yaml = load_yaml("manymove_bringup", controllers_config_relpath)
 
     if (
-        use_sim_time.perform(context).lower() == 'true'
+        use_sim_time.perform(context).lower() == "true"
         and not use_jazzy_fake_minimal
         and isinstance(controllers_yaml, dict)
-        and 'scaled_joint_trajectory_controller' in controllers_yaml
-        and 'joint_trajectory_controller' in controllers_yaml
+        and "scaled_joint_trajectory_controller" in controllers_yaml
+        and "joint_trajectory_controller" in controllers_yaml
     ):
-        controllers_yaml['scaled_joint_trajectory_controller']['default'] = True
-        controllers_yaml['joint_trajectory_controller']['default'] = False
+        controllers_yaml["scaled_joint_trajectory_controller"]["default"] = True
+        controllers_yaml["joint_trajectory_controller"]["default"] = False
     moveit_controllers = {
-        'moveit_simple_controller_manager': controllers_yaml,
-        'moveit_controller_manager': MOVEIT_CONTROLLER,
+        "moveit_simple_controller_manager": controllers_yaml,
+        "moveit_controller_manager": MOVEIT_CONTROLLER,
     }
 
     trajectory_execution = {
-        'moveit_manage_controllers': False,
-        'trajectory_execution.allowed_execution_duration_scaling': 1.2,
-        'trajectory_execution.allowed_goal_duration_margin': 0.5,
-        'trajectory_execution.allowed_start_tolerance': 0.01,
-        'trajectory_execution.execution_duration_monitoring': False,
+        "moveit_manage_controllers": False,
+        "trajectory_execution.allowed_execution_duration_scaling": 1.2,
+        "trajectory_execution.allowed_goal_duration_margin": 0.5,
+        "trajectory_execution.allowed_start_tolerance": 0.01,
+        "trajectory_execution.execution_duration_monitoring": False,
     }
 
     planning_scene_monitor_parameters = {
-        'publish_planning_scene': True,
-        'publish_geometry_updates': True,
-        'publish_state_updates': True,
-        'publish_transforms_updates': True,
+        "publish_planning_scene": True,
+        "publish_geometry_updates": True,
+        "publish_state_updates": True,
+        "publish_transforms_updates": True,
     }
 
     warehouse_ros_config = {
-        'warehouse_plugin': 'warehouse_ros_sqlite::DatabaseConnection',
-        'warehouse_host': os.path.expanduser(warehouse_sqlite_path.perform(context)),
+        "warehouse_plugin": "warehouse_ros_sqlite::DatabaseConnection",
+        "warehouse_host": os.path.expanduser(warehouse_sqlite_path.perform(context)),
     }
 
     moveit_parameter_overrides = [
@@ -412,22 +426,22 @@ def launch_setup(context, *args, **kwargs):
         trajectory_execution,
         moveit_controllers,
         planning_scene_monitor_parameters,
-        {'use_sim_time': use_sim_time},
+        {"use_sim_time": use_sim_time},
         warehouse_ros_config,
     ]
     if robot_description_kinematics:
         moveit_parameter_overrides.append(robot_description_kinematics)
 
     controllers_file_path = os.path.join(
-        get_package_share_directory('manymove_bringup'),
-        'config',
-        'ur',
-        'ur_with_robotiq_controllers.yaml',
+        get_package_share_directory("manymove_bringup"),
+        "config",
+        "ur",
+        "ur_with_robotiq_controllers.yaml",
     )
     update_rate_config_file = os.path.join(
-        get_package_share_directory('ur_robot_driver'),
-        'config',
-        f'{ur_type_value}_update_rate.yaml',
+        get_package_share_directory("ur_robot_driver"),
+        "config",
+        f"{ur_type_value}_update_rate.yaml",
     )
 
     ros2_control_parameters = [
@@ -437,89 +451,93 @@ def launch_setup(context, *args, **kwargs):
     ]
 
     control_node = Node(
-        package='controller_manager',
-        executable='ros2_control_node',
+        package="controller_manager",
+        executable="ros2_control_node",
         parameters=ros2_control_parameters,
-        output='screen',
+        output="screen",
         condition=IfCondition(use_fake_hardware),
     )
     ur_control_node = Node(
-        package='ur_robot_driver',
-        executable='ur_ros2_control_node',
+        package="ur_robot_driver",
+        executable="ur_ros2_control_node",
         parameters=ros2_control_parameters,
-        output='screen',
+        output="screen",
         condition=UnlessCondition(use_fake_hardware),
     )
 
     controllers_active = [
-        'joint_state_broadcaster',
-        'io_and_status_controller',
-        'speed_scaling_state_broadcaster',
-        'force_torque_sensor_broadcaster',
-        'tcp_pose_broadcaster',
-        'ur_configuration_controller',
+        "joint_state_broadcaster",
+        "io_and_status_controller",
+        "speed_scaling_state_broadcaster",
+        "force_torque_sensor_broadcaster",
+        "tcp_pose_broadcaster",
+        "ur_configuration_controller",
     ]
     controllers_inactive = [
-        'scaled_joint_trajectory_controller',
-        'joint_trajectory_controller',
-        'forward_velocity_controller',
-        'forward_position_controller',
-        'force_mode_controller',
-        'passthrough_trajectory_controller',
-        'freedrive_mode_controller',
-        'tool_contact_controller',
+        "scaled_joint_trajectory_controller",
+        "joint_trajectory_controller",
+        "forward_velocity_controller",
+        "forward_position_controller",
+        "force_mode_controller",
+        "passthrough_trajectory_controller",
+        "freedrive_mode_controller",
+        "tool_contact_controller",
     ]
 
     if use_jazzy_fake_minimal:
         controllers_active = [
-            'joint_state_broadcaster',
-            'joint_trajectory_controller',
-            'robotiq_activation_controller',
-            'robotiq_gripper_controller',
+            "joint_state_broadcaster",
+            "joint_trajectory_controller",
+            "robotiq_activation_controller",
+            "robotiq_gripper_controller",
         ]
         controllers_inactive = []
     else:
         initial_joint_controller_value = initial_joint_controller.perform(context)
         if initial_joint_controller_value not in controllers_active:
             controllers_active.append(initial_joint_controller_value)
-        controllers_inactive = [c for c in controllers_inactive if c not in controllers_active]
+        controllers_inactive = [
+            c for c in controllers_inactive if c not in controllers_active
+        ]
 
-        if use_fake_value == 'true':
-            controllers_active = [c for c in controllers_active if c != 'tcp_pose_broadcaster']
+        if use_fake_value == "true":
+            controllers_active = [
+                c for c in controllers_active if c != "tcp_pose_broadcaster"
+            ]
 
     controller_spawner_active = Node(
-        package='controller_manager',
-        executable='spawner',
+        package="controller_manager",
+        executable="spawner",
         arguments=[
-            '--controller-manager',
-            '/controller_manager',
-            '--controller-manager-timeout',
+            "--controller-manager",
+            "/controller_manager",
+            "--controller-manager-timeout",
             controller_spawner_timeout,
             *controllers_active,
         ],
-        output='screen',
+        output="screen",
     )
     controller_spawner_inactive = None
     if controllers_inactive:
         controller_spawner_inactive = Node(
-            package='controller_manager',
-            executable='spawner',
+            package="controller_manager",
+            executable="spawner",
             arguments=[
-                '--controller-manager',
-                '/controller_manager',
-                '--controller-manager-timeout',
+                "--controller-manager",
+                "/controller_manager",
+                "--controller-manager-timeout",
                 controller_spawner_timeout,
-                '--inactive',
+                "--inactive",
                 *controllers_inactive,
             ],
-            output='screen',
+            output="screen",
         )
 
     robot_state_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        output='both',
-        parameters=[robot_description, {'use_sim_time': use_sim_time}],
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        output="both",
+        parameters=[robot_description, {"use_sim_time": use_sim_time}],
     )
 
     gripper_controller_spawners = None
@@ -528,55 +546,63 @@ def launch_setup(context, *args, **kwargs):
             period=3.0,
             actions=[
                 Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    output='screen',
+                    package="controller_manager",
+                    executable="spawner",
+                    output="screen",
                     arguments=[
-                        '--controller-manager',
-                        '/controller_manager',
-                        '--controller-manager-timeout',
+                        "--controller-manager",
+                        "/controller_manager",
+                        "--controller-manager-timeout",
                         controller_spawner_timeout,
-                        'robotiq_gripper_controller',
+                        "robotiq_gripper_controller",
                     ],
                 ),
                 Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    output='screen',
+                    package="controller_manager",
+                    executable="spawner",
+                    output="screen",
                     arguments=[
-                        '--controller-manager',
-                        '/controller_manager',
-                        '--controller-manager-timeout',
+                        "--controller-manager",
+                        "/controller_manager",
+                        "--controller-manager-timeout",
                         controller_spawner_timeout,
-                        'robotiq_activation_controller',
+                        "robotiq_activation_controller",
                     ],
                 ),
             ],
         )
 
     move_group_node = Node(
-        package='moveit_ros_move_group',
-        executable='move_group',
-        output='screen',
+        package="moveit_ros_move_group",
+        executable="move_group",
+        output="screen",
         parameters=moveit_parameter_overrides,
     )
 
     servo_parameters = moveit_parameter_overrides.copy()
-    servo_yaml = load_yaml(moveit_config_pkg_name, os.path.join('config', 'ur_servo.yaml'))
-    servo_parameters.append({'moveit_servo': servo_yaml})
+    servo_yaml = load_yaml(
+        moveit_config_pkg_name, os.path.join("config", "ur_servo.yaml")
+    )
+    servo_parameters.append({"moveit_servo": servo_yaml})
     servo_node = Node(
-        package='moveit_servo',
-        executable='servo_node',
+        package="moveit_servo",
+        executable="servo_node",
         condition=IfCondition(launch_servo),
-        output='screen',
+        output="screen",
         parameters=servo_parameters,
     )
 
-    rviz_launch_requested = launch_rviz.perform(context).lower() in ('true', '1', 't', 'yes', 'on')
+    rviz_launch_requested = launch_rviz.perform(context).lower() in (
+        "true",
+        "1",
+        "t",
+        "yes",
+        "on",
+    )
     rviz_node = None
     if rviz_launch_requested:
         rviz_config_file = os.path.join(
-            get_package_share_directory('manymove_planner'), 'config', 'micpp_demo.rviz'
+            get_package_share_directory("manymove_planner"), "config", "micpp_demo.rviz"
         )
         rviz_parameters = [
             robot_description,
@@ -584,67 +610,74 @@ def launch_setup(context, *args, **kwargs):
             robot_description_planning,
             planning_pipeline_config,
             warehouse_ros_config,
-            {'use_sim_time': use_sim_time},
+            {"use_sim_time": use_sim_time},
         ]
         if robot_description_kinematics:
             rviz_parameters.append(robot_description_kinematics)
         rviz_node = Node(
-            package='rviz2',
-            executable='rviz2',
-            output='screen',
-            arguments=['-d', rviz_config_file, '--ros-args', '--log-level', 'rviz2:=fatal'],
+            package="rviz2",
+            executable="rviz2",
+            output="screen",
+            arguments=[
+                "-d",
+                rviz_config_file,
+                "--ros-args",
+                "--log-level",
+                "rviz2:=fatal",
+            ],
             parameters=rviz_parameters,
         )
 
     action_server_node = Node(
-        package='manymove_planner',
-        executable='action_server_node',
-        output='screen',
+        package="manymove_planner",
+        executable="action_server_node",
+        output="screen",
         parameters=moveit_parameter_overrides
         + [
             {
-                'node_prefix': prefix_clean,
-                'planner_prefix': prefix_clean,
-                'planner_type': planner_type,
-                'planning_group': planning_group,
-                'base_frame': base_frame,
-                'tcp_frame': tcp_frame,
-                'traj_controller': traj_controller,
+                "node_prefix": prefix_clean,
+                "planner_prefix": prefix_clean,
+                "planner_type": planner_type,
+                "planning_group": planning_group,
+                "base_frame": base_frame,
+                "tcp_frame": tcp_frame,
+                "traj_controller": traj_controller,
             }
         ],
     )
 
     object_manager_node = Node(
-        package='manymove_object_manager',
-        executable='object_manager_node',
-        name='object_manager_node',
-        output='screen',
-        parameters=[{'frame_id': 'world'}],
+        package="manymove_object_manager",
+        executable="object_manager_node",
+        name="object_manager_node",
+        output="screen",
+        parameters=[{"frame_id": "world"}],
     )
 
     color_signal_bt_client_node = Node(
-        package='manymove_color_signal',
-        executable='bt_client_ur_color_signal',
-        output='screen',
+        package="manymove_color_signal",
+        executable="bt_client_ur_color_signal",
+        output="screen",
         parameters=[
             {
-                'robot_model': ur_type_value,
-                'robot_prefix': prefix_clean,
-                'tcp_frame': tcp_frame,
-                'is_robot_real': is_robot_real,
-                'gripper_action_server': gripper_action_server,
+                "robot_model": ur_type_value,
+                "robot_prefix": prefix_clean,
+                "tcp_frame": tcp_frame,
+                "is_robot_real": is_robot_real,
+                "gripper_action_server": gripper_action_server,
+                "contact_links": contact_links,
             }
         ],
     )
 
     manymove_hmi_node = Node(
-        package='manymove_hmi',
-        executable='manymove_hmi_executable',
-        output='screen',
+        package="manymove_hmi",
+        executable="manymove_hmi_executable",
+        output="screen",
         parameters=[
             {
-                'robot_prefixes': [prefix_clean],
-                'robot_names': [ur_type_value],
+                "robot_prefixes": [prefix_clean],
+                "robot_names": [ur_type_value],
             }
         ],
     )
@@ -693,160 +726,165 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument(
-                'ur_type',
-                default_value='ur3e',
-                description='UR robot variant to launch.',
+                "ur_type",
+                default_value="ur3e",
+                description="UR robot variant to launch.",
                 choices=[
-                    'ur3',
-                    'ur5',
-                    'ur10',
-                    'ur3e',
-                    'ur5e',
-                    'ur7e',
-                    'ur10e',
-                    'ur12e',
-                    'ur16e',
-                    'ur8long',
-                    'ur15',
-                    'ur18',
-                    'ur20',
-                    'ur30',
+                    "ur3",
+                    "ur5",
+                    "ur10",
+                    "ur3e",
+                    "ur5e",
+                    "ur7e",
+                    "ur10e",
+                    "ur12e",
+                    "ur16e",
+                    "ur8long",
+                    "ur15",
+                    "ur18",
+                    "ur20",
+                    "ur30",
                 ],
             ),
             DeclareLaunchArgument(
-                'robot_ip',
-                default_value='127.0.0.1',
-                description='IP address of the UR controller.',
+                "robot_ip",
+                default_value="127.0.0.1",
+                description="IP address of the UR controller.",
             ),
             DeclareLaunchArgument(
-                'use_fake_hardware',
-                default_value='true',
-                description='Use fake hardware interface instead of a physical robot.',
+                "use_fake_hardware",
+                default_value="true",
+                description="Use fake hardware interface instead of a physical robot.",
             ),
             DeclareLaunchArgument(
-                'initial_joint_controller',
-                default_value='scaled_joint_trajectory_controller',
-                description='Name of the joint controller to start first.',
+                "initial_joint_controller",
+                default_value="scaled_joint_trajectory_controller",
+                description="Name of the joint controller to start first.",
             ),
             DeclareLaunchArgument(
-                'launch_rviz',
-                default_value='true',
-                description='Launch RViz from the UR MoveIt configuration.',
+                "launch_rviz",
+                default_value="true",
+                description="Launch RViz from the UR MoveIt configuration.",
             ),
             DeclareLaunchArgument(
-                'launch_servo',
-                default_value='false',
-                description='Enable MoveIt Servo from the UR MoveIt configuration.',
+                "launch_servo",
+                default_value="false",
+                description="Enable MoveIt Servo from the UR MoveIt configuration.",
             ),
             DeclareLaunchArgument(
-                'use_sim_time',
-                default_value='false',
-                description='Use simulation time for launched nodes.',
+                "use_sim_time",
+                default_value="false",
+                description="Use simulation time for launched nodes.",
             ),
             DeclareLaunchArgument(
-                'publish_robot_description_semantic',
-                default_value='true',
-                description='Publish the semantic robot description from MoveIt.',
+                "publish_robot_description_semantic",
+                default_value="true",
+                description="Publish the semantic robot description from MoveIt.",
             ),
             DeclareLaunchArgument(
-                'warehouse_sqlite_path',
-                default_value=os.path.expanduser('~/.ros/warehouse_ros.sqlite'),
-                description='Path to the MoveIt warehouse database.',
+                "warehouse_sqlite_path",
+                default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
+                description="Path to the MoveIt warehouse database.",
             ),
             DeclareLaunchArgument(
-                'prefix',
+                "prefix",
                 default_value='""',
-                description='Prefix applied to UR joints and frames.',
+                description="Prefix applied to UR joints and frames.",
             ),
             DeclareLaunchArgument(
-                'tf_prefix',
-                default_value='',
-                description='tf_prefix applied inside UR controller parameters.',
+                "tf_prefix",
+                default_value="",
+                description="tf_prefix applied inside UR controller parameters.",
             ),
             DeclareLaunchArgument(
-                'planner_type',
-                default_value='movegroup',
-                description='Planner type for Manymove (movegroup or moveitcpp).',
+                "planner_type",
+                default_value="movegroup",
+                description="Planner type for Manymove (movegroup or moveitcpp).",
             ),
             DeclareLaunchArgument(
-                'planning_group',
-                default_value='ur_manipulator',
-                description='MoveIt planning group to be used by Manymove.',
+                "planning_group",
+                default_value="ur_manipulator",
+                description="MoveIt planning group to be used by Manymove.",
             ),
             DeclareLaunchArgument(
-                'base_frame',
-                default_value='base_link',
-                description='Base frame of the UR robot.',
+                "base_frame",
+                default_value="base_link",
+                description="Base frame of the UR robot.",
             ),
             DeclareLaunchArgument(
-                'tcp_frame',
-                default_value='tool0',
-                description='Tool center point frame of the UR robot.',
+                "tcp_frame",
+                default_value="tool0",
+                description="Tool center point frame of the UR robot.",
             ),
             DeclareLaunchArgument(
-                'gripper_action_server',
-                default_value='robotiq_gripper_controller/gripper_cmd',
-                description='Gripper command action server relative name (prefix applied automatically).',
+                "gripper_action_server",
+                default_value="robotiq_gripper_controller/gripper_cmd",
+                description="Gripper command action server relative name (prefix applied automatically).",
             ),
             DeclareLaunchArgument(
-                'traj_controller',
-                default_value='scaled_joint_trajectory_controller',
-                description='Follow joint trajectory controller name exposed by the UR driver.',
+                "contact_links",
+                default_value='["robotiq_85_right_finger_tip_link", "robotiq_85_left_finger_tip_link"]',
+                description="List of links to exclude from collision checking",
             ),
             DeclareLaunchArgument(
-                'description_package',
-                default_value='manymove_bringup',
-                description='Package providing the UR + gripper robot description.',
+                "traj_controller",
+                default_value="scaled_joint_trajectory_controller",
+                description="Follow joint trajectory controller name exposed by the UR driver.",
             ),
             DeclareLaunchArgument(
-                'description_file',
-                default_value='ur_with_robotiq.xacro',
-                description='URDF/XACRO file describing the UR + gripper robot.',
+                "description_package",
+                default_value="manymove_bringup",
+                description="Package providing the UR + gripper robot description.",
             ),
             DeclareLaunchArgument(
-                'safety_limits',
-                default_value='true',
-                description='Enable the UR safety limits in the description.',
+                "description_file",
+                default_value="ur_with_robotiq.xacro",
+                description="URDF/XACRO file describing the UR + gripper robot.",
             ),
             DeclareLaunchArgument(
-                'safety_pos_margin',
-                default_value='0.15',
-                description='Safety position margin passed to the UR description.',
+                "safety_limits",
+                default_value="true",
+                description="Enable the UR safety limits in the description.",
             ),
             DeclareLaunchArgument(
-                'safety_k_position',
-                default_value='20',
-                description='Safety k-position parameter passed to the UR description.',
+                "safety_pos_margin",
+                default_value="0.15",
+                description="Safety position margin passed to the UR description.",
             ),
             DeclareLaunchArgument(
-                'moveit_config_package',
-                default_value='ur_moveit_config',
-                description='MoveIt config package providing SRDF and planning parameters.',
+                "safety_k_position",
+                default_value="20",
+                description="Safety k-position parameter passed to the UR description.",
             ),
             DeclareLaunchArgument(
-                'moveit_config_file',
-                default_value='srdf/ur_with_robotiq.srdf.xacro',
-                description='SRDF/XACRO file describing the UR MoveIt semantics.',
+                "moveit_config_package",
+                default_value="ur_moveit_config",
+                description="MoveIt config package providing SRDF and planning parameters.",
             ),
             DeclareLaunchArgument(
-                'srdf_package',
-                default_value='manymove_bringup',
-                description='Package providing the SRDF/Xacro file.',
+                "moveit_config_file",
+                default_value="srdf/ur_with_robotiq.srdf.xacro",
+                description="SRDF/XACRO file describing the UR MoveIt semantics.",
             ),
             DeclareLaunchArgument(
-                'moveit_joint_limits_file',
-                default_value='joint_limits.yaml',
-                description='Joint limits YAML file relative to the MoveIt config package.',
+                "srdf_package",
+                default_value="manymove_bringup",
+                description="Package providing the SRDF/Xacro file.",
             ),
             DeclareLaunchArgument(
-                'limited',
-                default_value='true',
-                description='Force UR joints to use finite limits instead of continuous.',
+                "moveit_joint_limits_file",
+                default_value="joint_limits.yaml",
+                description="Joint limits YAML file relative to the MoveIt config package.",
             ),
             DeclareLaunchArgument(
-                'controller_spawner_timeout',
-                default_value='10',
-                description='Timeout (s) passed to controller spawner processes.',
+                "limited",
+                default_value="true",
+                description="Force UR joints to use finite limits instead of continuous.",
+            ),
+            DeclareLaunchArgument(
+                "controller_spawner_timeout",
+                default_value="10",
+                description="Timeout (s) passed to controller spawner processes.",
             ),
             OpaqueFunction(function=launch_setup),
         ]

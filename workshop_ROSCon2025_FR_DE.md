@@ -4,10 +4,12 @@
 
 We'll execute a simple pick and place application with a Universal Robots UR3e.
 
-The source code is in `manymove_cpp_trees/src/tutorial_01.cpp`.
-You will copy the code shown in each section to the corrisponding section of the file. I suggest you to type it in, instead of just copy-paste it: this will help you notice every detail of code used, and to get used to editing it for your future projects!
+To edit the code, from inside the container you can run:
+```bash
+nano $MANYMOVE_WS/src/manymove_color_signal/src/bt_client_ur_color_signal.cpp 
+```
 
-If you get stuck, you find the whole complete code for the tutorial in `manymove_cpp_trees/src/tutorial_01_complete.cpp`.
+The program is already complete: we'll see it step by step, and try to edit it to change the behavior.l_01_complete.cpp`.
 
 For now, you can ignore section `0` and section `6` of the tutorial, as you only rarely need to touch it. We'll cover it in the documentation or in some future tutorial, if there's request for it.
 

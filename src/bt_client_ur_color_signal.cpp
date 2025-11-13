@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
 
   std::vector<manymove_cpp_trees::BlackboardEntry> keys;
 
-  RobotParams rp = defineRobotParams(node, blackboard, keys, "", "ur3e", "", "tool0");
+  RobotParams rp = defineRobotParams(node, blackboard, keys);
 
   // ----------------------------------------------------------------------------
   // 2) Setup joint targets, poses and moves
@@ -111,10 +111,7 @@ int main(int argc, char ** argv)
   // ----------------------------------------------------------------------------
 
   blackboard->set("tcp_frame_name_key", tcp_frame_name);
-  blackboard->set(
-    "touch_links",
-    std::vector<std::string>{"robotiq_85_right_finger_tip_link",
-      "robotiq_85_left_finger_tip_link"});
+  blackboard->set("touch_links", rp.contact_links);
 
   blackboard->set("world_frame_key", "world");
   blackboard->set("identity_transform_key", std::vector<double>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
@@ -162,42 +159,13 @@ int main(int argc, char ** argv)
   // ----------------------------------------------------------------------------
   // 4) Define Signals calls
   // ----------------------------------------------------------------------------
-  std::string gripper_action_server = rp.gripper_action_server;
-  const std::string deprecated_suffix = "gripper_command";
-  if (
-    !gripper_action_server.empty() &&
-    gripper_action_server.size() >= deprecated_suffix.size() &&
-    gripper_action_server.compare(
-      gripper_action_server.size() - deprecated_suffix.size(), deprecated_suffix.size(),
-      deprecated_suffix) == 0)
-  {
-    std::string converted =
-      gripper_action_server.substr(0, gripper_action_server.size() - deprecated_suffix.size()) +
-      "gripper_cmd";
-    RCLCPP_WARN(
-      node->get_logger(),
-      "Gripper action server '%s' uses deprecated suffix 'gripper_command'; using '%s' instead.",
-      gripper_action_server.c_str(), converted.c_str());
-    gripper_action_server = converted;
-    rp.gripper_action_server = converted;
-  }
-
-  const bool has_gripper_action_server = !gripper_action_server.empty();
-  if (!has_gripper_action_server) {
-    RCLCPP_WARN(
-      node->get_logger(),
-      "Parameter 'gripper_action_server' is empty; falling back to timed delays for gripper control.");
-  }
+  
   const std::string gripper_close_action_xml =
-    (has_gripper_action_server ?
-    "<GripperCommandAction position=\"0.75\" max_effort=\"40.0\" action_server=\"" +
-    gripper_action_server + "\"/>" :
-    "<Delay delay_msec=\"500\">\n  <AlwaysSuccess />\n</Delay>\n");
+    ("<GripperCommandAction position=\"0.75\" max_effort=\"40.0\" action_server=\"" +
+    rp.gripper_action_server + "\"/>");
   const std::string gripper_open_action_xml =
-    (has_gripper_action_server ?
-    "<GripperCommandAction position=\"0.25\" max_effort=\"40.0\" action_server=\"" +
-    gripper_action_server + "\"/>" :
-    "<Delay delay_msec=\"500\">\n  <AlwaysSuccess />\n</Delay>\n");
+    ("<GripperCommandAction position=\"0.25\" max_effort=\"40.0\" action_server=\"" +
+    rp.gripper_action_server + "\"/>");
   std::string check_robot_state_xml = buildCheckRobotStateXML(
     rp.prefix, "CheckRobot", "robot_ready", "error_code", "robot_mode", "robot_state", "robot_msg");
   std::string reset_robot_state_xml = buildResetRobotStateXML(rp.prefix, "ResetRobot", rp.model);
